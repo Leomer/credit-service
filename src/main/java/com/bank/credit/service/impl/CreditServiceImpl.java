@@ -15,6 +15,11 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -27,6 +32,7 @@ public class CreditServiceImpl implements CreditService {
 
     private final CreditRepository repository;
     private final CustomerClient customerClient;
+    private final ReactiveMongoTemplate mongoTemplate;
 
     @Override
     public Single<CreditDto> create(CreditDto dto) {
@@ -75,6 +81,32 @@ public class CreditServiceImpl implements CreditService {
                                 "New limit cannot be lower than the current balance"));
                     }
                     return Single.fromPublisher(repository.save(existing));
+                })
+                .map(CreditMapper::toDto);
+    }
+
+    @Override
+    public Single<CreditDto> updateBalance(String creditNumber, BigDecimal amount) {
+        log.info("Updating balance of credit {} by {}", creditNumber, amount);
+        return findEntity(creditNumber)
+                .flatMap(credit -> {
+                    Query query = new Query(Criteria.where("creditNumber").is(creditNumber));
+                    String errorMessage;
+                    if (amount.signum() > 0) {
+                        BigDecimal maxCurrentBalance = credit.getCreditLimit().subtract(amount);
+                        if (maxCurrentBalance.signum() < 0) {
+                            return Single.<Credit>error(new BusinessException("Credit limit exceeded"));
+                        }
+                        query.addCriteria(Criteria.where("balance").lte(maxCurrentBalance));
+                        errorMessage = "Credit limit exceeded";
+                    } else {
+                        query.addCriteria(Criteria.where("balance").gte(amount.negate()));
+                        errorMessage = "Payment exceeds the outstanding debt";
+                    }
+                    return Maybe.fromPublisher(mongoTemplate.findAndModify(
+                                    query, new Update().inc("balance", amount),
+                                    FindAndModifyOptions.options().returnNew(true), Credit.class))
+                            .switchIfEmpty(Single.<Credit>error(new BusinessException(errorMessage)));
                 })
                 .map(CreditMapper::toDto);
     }

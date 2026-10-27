@@ -5,6 +5,8 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 
+import java.math.BigDecimal;
+
 public interface CreditService {
 
     Single<CreditDto> create(CreditDto dto);
@@ -12,5 +14,6 @@ public interface CreditService {
     Single<CreditDto> findByCreditNumber(String creditNumber);
     Flowable<CreditDto> findByCustomer(String customerDocument);
     Single<CreditDto> update(String creditNumber, CreditDto dto);
+    Single<CreditDto> updateBalance(String creditNumber, BigDecimal amount);
     Completable delete(String creditNumber);
 }

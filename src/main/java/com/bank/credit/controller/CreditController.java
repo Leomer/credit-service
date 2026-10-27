@@ -1,5 +1,6 @@
 package com.bank.credit.controller;
 
+import com.bank.credit.dto.BalanceUpdateRequest;
 import com.bank.credit.dto.CreditDto;
 import com.bank.credit.service.CreditService;
 import io.reactivex.rxjava3.core.Completable;
@@ -42,6 +43,12 @@ public class CreditController {
     public Single<CreditDto> update(@PathVariable String creditNumber,
                                     @Valid @RequestBody CreditDto dto) {
         return creditService.update(creditNumber, dto);
+    }
+
+    @PatchMapping("/{creditNumber}/balance")
+    public Single<CreditDto> updateBalance(@PathVariable String creditNumber,
+                                           @Valid @RequestBody BalanceUpdateRequest request) {
+        return creditService.updateBalance(creditNumber, request.getAmount());
     }
 
     @DeleteMapping("/{creditNumber}")
