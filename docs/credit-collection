@@ -1,0 +1,181 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: Integrator project
+meta:
+  id: wrk_c19c338c74b84ffa97229a6b110467ce
+  created: 1793136263454
+  modified: 1793136263454
+  description: ""
+collection:
+  - name: customer-service
+    meta:
+      id: fld_f3a21770726544b48eac95bc895eca7e
+      created: 1793136326203
+      modified: 1793142922562
+      sortKey: -1793136326203
+      description: ""
+  - name: account-service
+    meta:
+      id: fld_4c177df46e27463b85dbe17f66ba4137
+      created: 1793136459278
+      modified: 1793151358813
+      sortKey: -1793136459278
+      description: ""
+  - name: credit-service
+    meta:
+      id: fld_40926c21a9ce49ca99ecab9df1876bee
+      created: 1793140973647
+      modified: 1793152190215
+      sortKey: -1793140973647
+      description: ""
+    children:
+      - url: http://localhost:8083/credits
+        name: find all credits
+        meta:
+          id: req_97715f691027488ba6e7495ab7198ddd
+          created: 1793140978011
+          modified: 1793152498839
+          isPrivate: false
+          description: ""
+          sortKey: -1793140978011
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8083/credits
+        name: create credit
+        meta:
+          id: req_380732b5f61646a090dae2188859338b
+          created: 1793141243490
+          modified: 1793151798274
+          isPrivate: false
+          description: ""
+          sortKey: -1793138847673.5
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"creditType": "CREDIT_CARD",
+            	"customerDocument": "12345678",
+            	"creditLimit": 1000
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8083/credits/CRBF5F34D08E24
+        name: find credits number
+        meta:
+          id: req_02d671cb91ca4291a991c55727905561
+          created: 1793141308341
+          modified: 1793153008390
+          isPrivate: false
+          description: ""
+          sortKey: -1793139912842.25
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8083/credits/customer/12345678
+        name: find document number
+        meta:
+          id: req_d766e111cbbe4099ac43e6cf7fe84413
+          created: 1793141344841
+          modified: 1793141435411
+          isPrivate: false
+          description: ""
+          sortKey: -1793139380257.875
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8083/credits/CR7FC1B73E7ECA
+        name: update credit number
+        meta:
+          id: req_cb6a268217d641eaaa64e35459613cd9
+          created: 1793141457313
+          modified: 1793141528308
+          isPrivate: false
+          description: ""
+          sortKey: -1793139113965.6875
+        method: PUT
+        body:
+          mimeType: application/json
+          text: |-
+            {
+            	"creditType": "PERSONAL",
+            	"customerDocument": "12345678",
+            	"creditLimit": 9000
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: http://localhost:8083/credits/CRCD78057D0D21
+        name: delete credit number
+        meta:
+          id: req_fd1dbf9cc78c41c7a4e9c7aa8f5683e3
+          created: 1793141558514
+          modified: 1793142710164
+          isPrivate: false
+          description: ""
+          sortKey: -1793139646550.0625
+        method: DELETE
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: transaction-service
+    meta:
+      id: fld_aa50b9afa9874453a2546891e9416d9b
+      created: 1793151351208
+      modified: 1793151351208
+      sortKey: -1793151351208
+      description: ""
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_36c5be0b969803f6aa04e14e7dc0d5bdec7da773
+    created: 1793136263459
+    modified: 1793136263459
+environments:
+  name: Base Environment
+  meta:
+    id: env_36c5be0b969803f6aa04e14e7dc0d5bdec7da773
+    created: 1793136263457
+    modified: 1793136263457
+    isPrivate: false

@@ -1,0 +1,176 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8083
+  description: Generated server url
+paths:
+  /credits/{creditNumber}:
+    get:
+      tags:
+      - credit-controller
+      operationId: findByCreditNumber
+      parameters:
+      - name: creditNumber
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleCreditDto"
+    put:
+      tags:
+      - credit-controller
+      operationId: update
+      parameters:
+      - name: creditNumber
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleCreditDto"
+    delete:
+      tags:
+      - credit-controller
+      operationId: delete
+      parameters:
+      - name: creditNumber
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/Completable"
+  /credits:
+    get:
+      tags:
+      - credit-controller
+      operationId: findAll
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreditDto"
+    post:
+      tags:
+      - credit-controller
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleCreditDto"
+  /credits/{creditNumber}/balance:
+    patch:
+      tags:
+      - credit-controller
+      operationId: updateBalance
+      parameters:
+      - name: creditNumber
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BalanceUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleCreditDto"
+  /credits/customer/{customerDocument}:
+    get:
+      tags:
+      - credit-controller
+      operationId: findByCustomer
+      parameters:
+      - name: customerDocument
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreditDto"
+components:
+  schemas:
+    CreditDto:
+      type: object
+      properties:
+        id:
+          type: string
+        creditNumber:
+          type: string
+        creditType:
+          type: string
+          enum:
+          - PERSONAL
+          - BUSINESS
+          - CREDIT_CARD
+        customerDocument:
+          type: string
+          minLength: 1
+        customerType:
+          type: string
+        creditLimit:
+          type: number
+          minimum: 0.01
+        balance:
+          type: number
+          minimum: 0.0
+      required:
+      - creditLimit
+      - creditType
+      - customerDocument
+    SingleCreditDto: {}
+    BalanceUpdateRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+      required:
+      - amount
+    Completable: {}
