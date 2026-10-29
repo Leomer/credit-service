@@ -16,4 +16,5 @@ public interface CreditService {
     Single<CreditDto> update(String creditNumber, CreditDto dto);
     Single<CreditDto> updateBalance(String creditNumber, BigDecimal amount);
     Completable delete(String creditNumber);
+    Single<Boolean> hasOverdueDebt(String customerDocument);
 }

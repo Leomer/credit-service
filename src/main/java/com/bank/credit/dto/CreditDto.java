@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -35,4 +36,7 @@ public class CreditDto {
 
     @DecimalMin(value = "0.0", message = "balance cannot be negative")
     private BigDecimal balance;
+
+    /** Payment due date; the credit is overdue when it passes with debt pending. */
+    private LocalDate dueDate;
 }

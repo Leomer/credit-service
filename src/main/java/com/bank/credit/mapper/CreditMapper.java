@@ -19,6 +19,7 @@ public final class CreditMapper {
                 .customerType(e.getCustomerType())
                 .creditLimit(e.getCreditLimit())
                 .balance(e.getBalance())
+                .dueDate(e.getDueDate())
                 .build();
     }
 
@@ -31,6 +32,7 @@ public final class CreditMapper {
                 .customerType(d.getCustomerType())
                 .creditLimit(d.getCreditLimit())
                 .balance(d.getBalance() != null ? d.getBalance() : BigDecimal.ZERO)
+                .dueDate(d.getDueDate())
                 .build();
     }
 }

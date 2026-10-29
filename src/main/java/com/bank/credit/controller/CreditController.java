@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/credits")
 @RequiredArgsConstructor
@@ -55,5 +57,11 @@ public class CreditController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Completable delete(@PathVariable String creditNumber) {
         return creditService.delete(creditNumber);
+    }
+
+    @GetMapping("/customer/{customerDocument}/overdue")
+    public Single<Map<String, Boolean>> overdue(@PathVariable String customerDocument) {
+        return creditService.hasOverdueDebt(customerDocument)
+                .map(overdue -> Map.of("overdue", overdue));
     }
 }

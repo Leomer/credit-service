@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -27,4 +28,6 @@ public class Credit {
     private String customerType;
     private BigDecimal creditLimit;
     private BigDecimal balance;
+    /** Payment due date; the credit is overdue when it passes with debt pending. */
+    private LocalDate dueDate;
 }

@@ -15,6 +15,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -23,6 +24,8 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Slf4j
@@ -33,20 +36,32 @@ public class CreditServiceImpl implements CreditService {
     private final CreditRepository repository;
     private final CustomerClient customerClient;
     private final ReactiveMongoTemplate mongoTemplate;
+    private final Clock clock;
+
+    @Value("${business.default-due-days}")
+    private int defaultDueDays;
 
     @Override
     public Single<CreditDto> create(CreditDto dto) {
         log.info("Creating {} credit for customer {}", dto.getCreditType(), dto.getCustomerDocument());
         return Single.fromPublisher(customerClient.findByDocument(dto.getCustomerDocument()))
-                .flatMap(customer -> {
-                    dto.setCustomerType(customer.getType());
-                    return validate(dto);
-                })
+                .flatMap(customer -> hasOverdueDebt(dto.getCustomerDocument())
+                        .flatMap(overdue -> overdue
+                                ? Single.<CreditDto>error(new BusinessException(
+                                "Customer has overdue debt and cannot acquire new products"))
+                                : Single.just(dto))
+                        .flatMap(ok -> {
+                            dto.setCustomerType(customer.getType());
+                            return validate(dto);
+                        }))
                 .map(valid -> {
                     Credit entity = CreditMapper.toEntity(valid);
                     entity.setId(null);
                     entity.setCreditNumber(generateCreditNumber());
                     entity.setBalance(BigDecimal.ZERO);
+                    if (entity.getDueDate() == null) {
+                        entity.setDueDate(LocalDate.now(clock).plusDays(defaultDueDays));
+                    }
                     return entity;
                 })
                 .flatMap(entity -> Single.fromPublisher(repository.save(entity)))
@@ -116,6 +131,15 @@ public class CreditServiceImpl implements CreditService {
         log.info("Deleting credit {}", creditNumber);
         return findEntity(creditNumber)
                 .flatMapCompletable(existing -> Completable.fromPublisher(repository.delete(existing)));
+    }
+
+    @Override
+    public Single<Boolean> hasOverdueDebt(String customerDocument) {
+        LocalDate today = LocalDate.now(clock);
+        return Flowable.fromPublisher(repository.findByCustomerDocument(customerDocument))
+                .any(c -> c.getDueDate() != null
+                        && c.getDueDate().isBefore(today)
+                        && c.getBalance().signum() > 0);
     }
 
     /** Validates business rules by customer type and credit type. */

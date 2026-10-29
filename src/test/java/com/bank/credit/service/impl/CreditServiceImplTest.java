@@ -8,21 +8,28 @@ import com.bank.credit.exception.NotFoundException;
 import com.bank.credit.model.Credit;
 import com.bank.credit.model.CreditType;
 import com.bank.credit.repository.CreditRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.UpdateDefinition;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,8 +50,16 @@ class CreditServiceImplTest {
     @Mock
     private ReactiveMongoTemplate mongoTemplate;
 
+    @Spy
+    private Clock clock = Clock.fixed(Instant.parse("2026-10-15T10:00:00Z"), ZoneOffset.UTC);
+
     @InjectMocks
     private CreditServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(service, "defaultDueDays", 30);
+    }
 
     // ---------- helpers ----------
 
@@ -70,6 +85,10 @@ class CreditServiceImplTest {
         when(repository.save(any(Credit.class))).thenAnswer(i -> Mono.just(i.getArgument(0)));
     }
 
+    private void noExistingCredits() {
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.empty());
+    }
+
     private void atomicUpdateReturns(Mono<Credit> result) {
         when(mongoTemplate.findAndModify(any(Query.class), any(UpdateDefinition.class),
                 any(FindAndModifyOptions.class), eq(Credit.class))).thenReturn(result);
@@ -80,6 +99,7 @@ class CreditServiceImplTest {
     @Test
     void createPersonalCreditShouldSucceedWhenCustomerHasNone() {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        noExistingCredits();
         when(repository.countByCustomerDocumentAndCreditType("123", CreditType.PERSONAL))
                 .thenReturn(Mono.just(0L));
         saveReturnsSameEntity();
@@ -92,8 +112,37 @@ class CreditServiceImplTest {
     }
 
     @Test
+    void createShouldSetDefaultDueDateWhenMissing() {
+        when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        noExistingCredits();
+        saveReturnsSameEntity();
+
+        // fixed clock is 2026-10-15, so 30 days later is 2026-11-14
+        service.create(request(CreditType.CREDIT_CARD))
+                .test()
+                .assertValue(c -> LocalDate.of(2026, 11, 14).equals(c.getDueDate()))
+                .assertComplete();
+    }
+
+    @Test
+    void createShouldKeepDueDateWhenProvided() {
+        when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        noExistingCredits();
+        saveReturnsSameEntity();
+
+        CreditDto dto = request(CreditType.CREDIT_CARD);
+        dto.setDueDate(LocalDate.of(2026, 12, 31));
+
+        service.create(dto)
+                .test()
+                .assertValue(c -> LocalDate.of(2026, 12, 31).equals(c.getDueDate()))
+                .assertComplete();
+    }
+
+    @Test
     void createPersonalCreditShouldFailWhenCustomerAlreadyHasOne() {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        noExistingCredits();
         when(repository.countByCustomerDocumentAndCreditType("123", CreditType.PERSONAL))
                 .thenReturn(Mono.just(1L));
 
@@ -104,6 +153,7 @@ class CreditServiceImplTest {
     @Test
     void createPersonalCreditShouldFailForBusinessCustomer() {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("BUSINESS")));
+        noExistingCredits();
 
         service.create(request(CreditType.PERSONAL)).test().assertError(BusinessException.class);
     }
@@ -111,6 +161,7 @@ class CreditServiceImplTest {
     @Test
     void createBusinessCreditShouldFailForPersonalCustomer() {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        noExistingCredits();
 
         service.create(request(CreditType.BUSINESS)).test().assertError(BusinessException.class);
     }
@@ -118,6 +169,7 @@ class CreditServiceImplTest {
     @Test
     void createBusinessCreditShouldSucceedWithoutCountingExisting() {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("BUSINESS")));
+        noExistingCredits();
         saveReturnsSameEntity();
 
         service.create(request(CreditType.BUSINESS)).test().assertComplete();
@@ -129,6 +181,7 @@ class CreditServiceImplTest {
     @ValueSource(strings = {"PERSONAL", "BUSINESS"})
     void createCreditCardShouldSucceedForAnyCustomerType(String customerType) {
         when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer(customerType)));
+        noExistingCredits();
         saveReturnsSameEntity();
 
         service.create(request(CreditType.CREDIT_CARD)).test().assertComplete();
@@ -141,6 +194,53 @@ class CreditServiceImplTest {
 
         service.create(request(CreditType.CREDIT_CARD)).test().assertError(BusinessException.class);
         verify(repository, never()).save(any());
+    }
+
+    // ---------- overdue debt ----------
+
+    @Test
+    void createShouldFailWhenCustomerHasOverdueDebt() {
+        Credit overdue = credit("200", "1000");
+        overdue.setDueDate(LocalDate.of(2026, 9, 1)); // before the fixed clock
+        when(customerClient.findByDocument("123")).thenReturn(Mono.just(customer("PERSONAL")));
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.just(overdue));
+
+        service.create(request(CreditType.CREDIT_CARD)).test().assertError(BusinessException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void hasOverdueDebtShouldBeTrueWhenPastDueWithDebt() {
+        Credit overdue = credit("200", "1000");
+        overdue.setDueDate(LocalDate.of(2026, 9, 1));
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.just(overdue));
+
+        service.hasOverdueDebt("123").test().assertValue(true).assertComplete();
+    }
+
+    @Test
+    void hasOverdueDebtShouldBeFalseWhenDebtIsNotDueYet() {
+        Credit current = credit("200", "1000");
+        current.setDueDate(LocalDate.of(2026, 11, 1));
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.just(current));
+
+        service.hasOverdueDebt("123").test().assertValue(false).assertComplete();
+    }
+
+    @Test
+    void hasOverdueDebtShouldBeFalseWhenPastDueButFullyPaid() {
+        Credit paid = credit("0", "1000");
+        paid.setDueDate(LocalDate.of(2026, 9, 1));
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.just(paid));
+
+        service.hasOverdueDebt("123").test().assertValue(false).assertComplete();
+    }
+
+    @Test
+    void hasOverdueDebtShouldBeFalseWhenCustomerHasNoCredits() {
+        when(repository.findByCustomerDocument("123")).thenReturn(Flux.empty());
+
+        service.hasOverdueDebt("123").test().assertValue(false).assertComplete();
     }
 
     // ---------- queries ----------
